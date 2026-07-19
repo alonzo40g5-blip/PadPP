@@ -11,14 +11,30 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
-      # Works whether the project files sit at the repo root
-      # or inside a NotepadPP/ subfolder
+      - name: Show repository contents
+        run: find . -maxdepth 3 -not -path '*/.git*' | head -40
+
+      - name: Unzip project if it was uploaded as a zip
+        shell: bash
+        run: |
+          if ! find . -maxdepth 3 -name settings.gradle.kts -not -path '*/.git*' | grep -q .; then
+            ZIP=$(find . -maxdepth 2 -iname '*.zip' -not -path '*/.git*' | head -n 1)
+            if [ -n "$ZIP" ]; then
+              echo "No Gradle project found — extracting $ZIP"
+              unzip -q -o "$ZIP" -d extracted
+            fi
+          fi
+
       - name: Locate Gradle project
         id: proj
         shell: bash
         run: |
-          FOUND=$(find . -maxdepth 3 -name settings.gradle.kts -not -path '*/build/*' | head -n 1)
-          DIR=$(dirname "${FOUND:-.}")
+          FOUND=$(find . -maxdepth 5 -name settings.gradle.kts -not -path '*/build/*' -not -path '*/.git*' | head -n 1)
+          if [ -z "$FOUND" ]; then
+            echo "::error::No Gradle project found. Upload NotepadPP-android.zip (or the project files) to this repository."
+            exit 1
+          fi
+          DIR=$(dirname "$FOUND")
           echo "dir=$DIR" >> "$GITHUB_OUTPUT"
           echo "Building project in: $DIR"
 
